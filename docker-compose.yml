@@ -1,0 +1,68 @@
+###
+# Cluster example
+###
+version: "3.7"
+
+services:
+
+    cluster-sync-redis:
+        image: redis:7.0.8-alpine
+
+    cluster-sync-one:
+        image: cluster-sync:latest
+        build: .
+        environment:
+            - REDIS_HOST=cluster-sync-redis
+            - DESTINATION_SYNC_DIRECTORY=/syncdir/
+            - SOURCE_SYNC_DIRECTORY=/syncdir/
+        volumes:
+            - cluster-sync-directory-one:/syncdir
+        command: sh -c "/usr/sbin/sshd && python -u sync.py"
+        depends_on:
+            - cluster-sync-redis
+
+    cluster-sync-two:
+        image: cluster-sync:latest
+        environment:
+            - REDIS_HOST=cluster-sync-redis
+            - DESTINATION_SYNC_DIRECTORY=/syncdir/
+            - SOURCE_SYNC_DIRECTORY=/syncdir/
+        volumes:
+            - cluster-sync-directory-two:/syncdir
+        command: sh -c "/usr/sbin/sshd && python -u sync.py"
+        depends_on:
+            - cluster-sync-redis
+
+    cluster-sync-three:
+        image: cluster-sync:latest
+        environment:
+            - REDIS_HOST=cluster-sync-redis
+            - DESTINATION_SYNC_DIRECTORY=/syncdir/
+            - SOURCE_SYNC_DIRECTORY=/syncdir/
+        volumes:
+            - cluster-sync-directory-three:/syncdir
+        command: sh -c "/usr/sbin/sshd && python -u sync.py"
+        depends_on:
+            - cluster-sync-redis
+
+volumes:
+    cluster-sync-directory-one:
+        driver: local
+        driver_opts:
+            o: "bind"
+            type: "none"
+            device: "/tmp/sync-one"
+
+    cluster-sync-directory-two:
+        driver: local
+        driver_opts:
+            o: "bind"
+            type: "none"
+            device: "/tmp/sync-two"
+
+    cluster-sync-directory-three:
+        driver: local
+        driver_opts:
+            o: "bind"
+            type: "none"
+            device: "/tmp/sync-three"
