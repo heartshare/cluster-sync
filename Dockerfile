@@ -13,7 +13,7 @@ RUN echo "StrictModes no" >> /etc/ssh/sshd_config
 COPY docker/id_rsa /root/.ssh/
 COPY docker/id_rsa.pub /root/.ssh/
 COPY docker/authorized_keys /root/.ssh/
-RUN chmod 600 /tmp/id_rsa*
+RUN chmod 600 /root/.ssh/id_rsa*
 
 COPY sync.py ./
 
