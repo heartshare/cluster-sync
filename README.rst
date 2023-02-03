@@ -32,8 +32,23 @@ Quickstart
 
 Create files and directories in any of those directories and see them synching.
 
+Docker swarm
+------------
+
+Adapt the docker-compose.yml file with deployment instructions.
+
 Caveat
 ------
 
 Deletion is not synchronized because it needs more work to ensure a new
 clean node does not accidentally trigger mass deletions in other nodes.
+
+
+Security
+--------
+
+This repo and thus any containers contain a private RSA key. This key is
+required for rsync to be able to connect to a remote server. This key
+can only be used for nefarious purposes by someone with shell access on your
+servers or any container that is already part of your cluster. If these
+parties cannot be trusted then you have bigger issues :)
