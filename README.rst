@@ -19,7 +19,8 @@ NFS - not really clustered.
 S3 - all the filesystem operations are not available.
 
 Cluster Sync works well if you are on a budget and can't afford to shell
-out for three or more large enough Linode or Digital Ocean instances.
+out for three or more large enough Linode or Digital Ocean instances. Synchronization
+is eventually consistent, just like syncthing.
 
 Quickstart
 ----------
