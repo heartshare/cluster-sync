@@ -1,3 +1,4 @@
+import datetime
 import os
 import socket
 import threading
@@ -19,18 +20,32 @@ channel = os.environ.get("CHANNEL", "cluster-sync")
 
 unhandled_exit.activate()
 
+lock = threading.Lock()
+
+
+def get_now_string():
+    return datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
 
 def publish():
-    redis = Redis(os.environ.get("REDIS_HOST", 'localhost'), 6379)
+    redis = Redis(os.environ.get("REDIS_HOST", "localhost"), 6379)
     while True:
         try:
             adapter = InotifyTree(
                 source_sync_dir,
-                mask=constants.IN_MODIFY|constants.IN_CLOSE_WRITE|constants.IN_MOVE|constants.IN_CREATE|constants.IN_DELETE|constants.IN_ONLYDIR|constants.IN_ISDIR
+                mask=constants.IN_MODIFY
+                | constants.IN_CLOSE_WRITE
+                | constants.IN_MOVE
+                | constants.IN_CREATE
+                | constants.IN_DELETE
+                | constants.IN_ONLYDIR
+                | constants.IN_ISDIR,
             )
             break
         except InotifyError:
-            print("Unable to set inotify watches. You may need to increase fs.inotify.max_user_watches.")
+            print(
+                "Unable to set inotify watches. You may need to increase fs.inotify.max_user_watches."
+            )
 
     last_announce = 0
     last_event = 0
@@ -41,19 +56,27 @@ def publish():
         # New subscribers won't know of us until either a file needs to be synched or we announce ourself.
         # We announce ourself periodically.
         if now - last_announce > 300:
-            redis.publish(channel, my_ip_address)
+            lock.acquire()
+            try:
+                redis.publish(channel, my_ip_address)
+            finally:
+                lock.release()
             last_announce = now
 
         # Publish event. Incorporate a throttle.
         if event is not None:
             if (now - last_event > 1) and (now - last_announce > 1):
-                redis.publish(channel, my_ip_address)
+                lock.acquire()
+                try:
+                    redis.publish(channel, my_ip_address)
+                finally:
+                    lock.release()
                 last_event = now
 
 
 def subscribe():
     sync_history = {}
-    redis = Redis(os.environ.get("REDIS_HOST", 'localhost'), 6379)
+    redis = Redis(os.environ.get("REDIS_HOST", "localhost"), 6379)
     pubsub = redis.pubsub()
     pubsub.subscribe(channel)
 
@@ -63,9 +86,13 @@ def subscribe():
         # Periodic sync
         for ip_address, last_sync in sync_history.items():
             if (ip_address != my_ip_address) and (now - last_sync > 60):
-                print("Periodic synch from %s" % ip_address)
-                cmd = f"/usr/bin/rsync -a -o -g --timeout=3 -e 'ssh -o StrictHostKeyChecking=no' {ip_address}:{source_sync_dir} {dest_sync_dir}"
-                os.system(cmd)
+                cmd = f"/usr/bin/rsync -a -o -g -u --temp-dir=/tmp -e 'ssh -o StrictHostKeyChecking=no' {ip_address}:{source_sync_dir} {dest_sync_dir}"
+                lock.acquire()
+                try:
+                    print("[%s] - periodic synch from %s" % (get_now_string(), ip_address))
+                    os.system(cmd)
+                finally:
+                    lock.release()
                 sync_history[ip_address] = now
 
         # Message driven sync
@@ -75,15 +102,19 @@ def subscribe():
             if ip_address != my_ip_address:
                 last_sync = sync_history.get(ip_address, 0)
                 if now - last_sync > 10:
-                    print("Subscribed synch from %s" % ip_address)
-                    cmd = f"/usr/bin/rsync -a -o -g --timeout=3 -e 'ssh -o StrictHostKeyChecking=no' {ip_address}:{source_sync_dir} {dest_sync_dir}"
-                    os.system(cmd)
+                    cmd = f"/usr/bin/rsync -a -o -g -u --temp-dir=/tmp -e 'ssh -o StrictHostKeyChecking=no' {ip_address}:{source_sync_dir} {dest_sync_dir}"
+                    lock.acquire()
+                    try:
+                        print("[%s] - subscribed synch from %s" % (get_now_string(), ip_address))
+                        os.system(cmd)
+                    finally:
+                        lock.release()
                     sync_history[ip_address] = now
 
         time.sleep(1)
 
 
-if __name__ =="__main__":
+if __name__ == "__main__":
     publish_thread = threading.Thread(target=publish)
     subscribe_thread = threading.Thread(target=subscribe)
     publish_thread.start()
