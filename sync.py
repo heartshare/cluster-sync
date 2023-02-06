@@ -86,7 +86,7 @@ def subscribe():
         # Periodic sync
         for ip_address, last_sync in sync_history.items():
             if (ip_address != my_ip_address) and (now - last_sync > 60):
-                cmd = f"/usr/bin/rsync -a -o -g -u --temp-dir=/tmp -e 'ssh -o StrictHostKeyChecking=no' {ip_address}:{source_sync_dir} {dest_sync_dir}"
+                cmd = f"/usr/bin/rsync -a -o -g -u --delay-updates --temp-dir=/tmp -e 'ssh -o StrictHostKeyChecking=no' {ip_address}:{source_sync_dir} {dest_sync_dir}"
                 lock.acquire()
                 try:
                     print("[%s] - periodic synch from %s" % (get_now_string(), ip_address))
@@ -102,7 +102,7 @@ def subscribe():
             if ip_address != my_ip_address:
                 last_sync = sync_history.get(ip_address, 0)
                 if now - last_sync > 10:
-                    cmd = f"/usr/bin/rsync -a -o -g -u --temp-dir=/tmp -e 'ssh -o StrictHostKeyChecking=no' {ip_address}:{source_sync_dir} {dest_sync_dir}"
+                    cmd = f"/usr/bin/rsync -a -o -g -u --delay-updates --temp-dir=/tmp -e 'ssh -o StrictHostKeyChecking=no' {ip_address}:{source_sync_dir} {dest_sync_dir}"
                     lock.acquire()
                     try:
                         print("[%s] - subscribed synch from %s" % (get_now_string(), ip_address))
